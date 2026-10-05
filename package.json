@@ -11,12 +11,15 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
     "@zip.js/zip.js": "^2.8.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
     "@playwright/test": "^1.56.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

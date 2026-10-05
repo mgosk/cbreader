@@ -2,7 +2,7 @@
 
 ## Scope and assumption
 
-The initial app implements local imports, page reading, draft preview, text translations, zoom, and saved page progress. Audio is deferred. The speech and persistent content storage choices below describe possible later work.
+The initial app implements local imports, page reading, draft preview, text translations, zoom, and saved page progress. It runs in a browser and in an Android app packaged with Capacitor 8. Audio is deferred. The speech and persistent content storage choices below describe possible later work.
 
 Build the first version as a browser app for desktop and tablet reading. A user selects a local CBZ containing `translations.json`. The app displays the original pages, lets the user tap text regions to see translated text and and remembers reading progress. The [translation format](translation-format.md) is the content contract. This proposal does not assume a hosted comic library or user accounts.
 
@@ -21,6 +21,8 @@ Build the first version as a browser app for desktop and tablet reading. A user 
 
 Use a static deployment for the reader. A backend is unnecessary for the initial local file workflow. The app can later become an installable offline PWA by caching its own code with a service worker; that alone does not persist user selected CBZ files.
 
+For Android distribution, Capacitor loads the Vite production output in a native WebView. `capacitor.config.ts` sets the app ID to `com.cbreader.app` and the web asset directory to `dist`. The checked-in `android/` project uses Gradle to package those assets into an APK. Run the web build and `npx cap sync android` before Gradle; see [Android build instructions](android-build.md). The APK bundles the reader code, while comics are still selected locally and are not included in the build.
+
 ## File and rendering flow
 
 1. Let the user select a CBZ containing its translation JSON through the browser's File API. Accept drag and drop as a convenience.
@@ -37,7 +39,7 @@ Use a static deployment for the reader. A backend is unnecessary for the initial
 - Keep OCR and translation authoring outside the reader. A separate authoring tool can produce the same JSON and run the same validation rules.
 - Browser storage has quotas and can be cleared, so imported files should remain available for reimport. Decide whether the library should persist whole CBZ files after testing typical book sizes on target devices.
 - Speech voices vary by browser and device. Prerecorded audio is the fallback when consistent pronunciation matters.
-- Confirm target platforms before implementation. If native mobile distribution or access to a device file library is required, revisit the browser app choice.
+- Android distribution uses Capacitor with the existing web reader. Access to a persistent device file library would require additional implementation and testing on target devices.
 
 ## References
 

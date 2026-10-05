@@ -32,6 +32,22 @@ See [translation format](docs/translation-format.md) and [stack proposal](docs/t
 
 To also run the real archive check, set `CBREADER_TEST_CBZ` to your packaged `books/dog-man-01.cbz` path when running `npm run test:e2e`. Without it, the tests use generated fixtures and skip the private comic check.
 
+## Build an Android APK
+
+The Android app wraps the production reader with Capacitor 8. Install Node.js 22+, JDK 21 or 25, and an Android SDK with platform 36 and Build Tools 35.0.0. Set `JAVA_HOME` to the JDK and `ANDROID_HOME` to the SDK directory, then run from the repository root:
+
+```sh
+npm ci
+npm run build
+npx cap sync android
+cd android
+./gradlew assembleDebug
+```
+
+The installable debug APK is `android/app/build/outputs/apk/debug/app-debug.apk`. On Windows, use `gradlew.bat assembleDebug`. Rebuild and sync the web assets before each APK build so it includes your latest changes.
+
+See [Android build instructions](docs/android-build.md) for SDK setup, device installation, release signing, and troubleshooting.
+
 ## Package a translation
 
 The reader expects version 2 `translations.json` at the CBZ root. Each item contains an original transcript and a language-keyed map of translations. Editable JSON remains in the project for authoring. Package it using Python 3 (standard library only):
