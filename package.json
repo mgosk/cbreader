@@ -18,6 +18,11 @@
     "react-dom": "^19.0.0",
     "zod": "^4.0.0"
   },
+  "overrides": {
+    "xcode": {
+      "uuid": "11.1.1"
+    }
+  },
   "devDependencies": {
     "@capacitor/cli": "^8.5.2",
     "@playwright/test": "^1.56.0",
