@@ -46,21 +46,7 @@ cd android
 
 The installable debug APK is `android/app/build/outputs/apk/debug/app-debug.apk`. On Windows, use `gradlew.bat assembleDebug`. Rebuild and sync the web assets before each APK build so it includes your latest changes.
 
-See [Android build instructions](docs/android-build.md) for SDK setup, device installation, release signing, and troubleshooting.
-
-## Package a translation
-
-The reader expects version 2 `translations.json` at the CBZ root. Each item contains an original transcript and a language-keyed map of translations. Editable JSON remains in the project for authoring. Package it using Python 3 (standard library only):
-
-```sh
-mkdir -p books
-python3 scripts/package_cbz.py \
-  "/home/mgosk/code/cb/01 - Dog Man.cbz" \
-  translations/dog-man-01.draft.json \
-  books/dog-man-01.cbz
-```
-
-The command creates a new archive and refuses to overwrite an existing output; choose a new output name for subsequent revisions. Images keep their original paths and order. CBZ files are ignored by Git. Imported JSON is limited to 10 MB decompressed.
+See [Android build instructions](docs/android-build.md) for local debug builds, SDK setup, device installation, and troubleshooting. Release APKs are built exclusively through GitHub Actions; see [CI/CD instructions](docs/cicd.md#releases) for signing setup, Git tags, and APK downloads.
 
 ## Fullscreen and touch reading
 

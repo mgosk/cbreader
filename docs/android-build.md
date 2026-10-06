@@ -66,30 +66,11 @@ adb shell am start -n com.cbreader.app/.MainActivity
 
 If multiple devices are connected, add `-s DEVICE_SERIAL` after `adb`. Copy a packaged CBZ to the device and check file selection, translation taps, page swipes, zoom/pan, portrait/landscape tablet controls, and saved reading progress after reopening the app and selecting the book again. A successful APK build checks compilation and packaging; it does not verify these device interactions.
 
-## Build a regular (signed release) APK
+## Release APKs
 
-For an APK you can share and install for normal use, build a signed release APK. From the repository root, prepare the web assets and open the native project:
+Release APKs are built and signed exclusively by the manual GitHub Actions `release` workflow. Follow the [CI/CD release instructions](cicd.md#releases) to configure signing secrets, enter a new SemVer version in the GitHub Actions UI, and download the APK. The pipeline creates the Git tag.
 
-```sh
-npm ci
-npm run build
-npx cap sync android
-npx cap open android
-```
-
-In Android Studio:
-
-1. Wait for Gradle sync to finish, then choose **Build > Generate Signed Bundle / APK**.
-2. Select **APK** and click **Next**.
-3. Select the `app` module. Choose an existing keystore, or click **Create new** to create a `.jks` file outside the repository. Enter the keystore password, key alias, and key password; for a new key, use a validity of at least 25 years.
-4. Click **Next**, choose a destination folder and the **release** build variant, then finish the wizard.
-5. Use the build notification's **locate** link to find the signed `.apk` in the chosen destination folder. Copy it to your device and open it to install, allowing installation from that source when Android prompts you, or run `adb install -r /path/to/generated.apk`.
-
-Keep a backup of the keystore and its passwords outside version control. Use the same signing key for future updates, and increase `versionCode` and update `versionName` in `android/app/build.gradle` for each release. If you previously installed the debug APK, uninstall it before installing the release APK because their signing keys differ; uninstalling clears saved reading progress.
-
-The current project has no release signing configuration. Running `./gradlew assembleRelease` from `android/` alone creates `android/app/build/outputs/apk/release/app-release-unsigned.apk`, which must be signed before installation or distribution. The Android Studio wizard above handles signing; see the [Android signing guide](https://developer.android.com/studio/publish/app-signing) for details and command-line alternatives.
-
-For Google Play, generate a signed Android App Bundle instead of a debug APK. Set the release `versionCode` and `versionName` in `android/app/build.gradle` before publishing.
+Install the downloaded APK by opening it on your device or running `adb install -r /path/to/app-release.apk`. If you previously installed a debug APK, uninstall it first because the signing keys differ; uninstalling clears saved reading progress.
 
 ## Verified build
 

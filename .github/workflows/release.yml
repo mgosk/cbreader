@@ -1,0 +1,147 @@
+name: release
+run-name: Release ${{ inputs.version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: New release version (MAJOR.MINOR.PATCH, e.g. 0.1.0)
+        type: string
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate new release version
+        id: version
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$GITHUB_REF" != refs/heads/master ]]; then
+            echo "::error::Run the release workflow from master."
+            exit 1
+          fi
+          if [[ ! "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})$ ]]; then
+            echo "::error::Use a stable SemVer version MAJOR.MINOR.PATCH (major <= 2099, minor/patch <= 999)."
+            exit 1
+          fi
+          major="${BASH_REMATCH[1]}"
+          minor="${BASH_REMATCH[2]}"
+          patch="${BASH_REMATCH[3]}"
+          if (( major > 2099 )); then
+            echo "::error::Major version exceeds the Android versionCode limit."
+            exit 1
+          fi
+          tag="v$RELEASE_VERSION"
+          code=$((major * 1000000 + minor * 1000 + patch + 1))
+          if git show-ref --verify --quiet "refs/tags/$tag"; then
+            echo "::error::Release tag already exists. Choose a new version."
+            exit 1
+          fi
+          while IFS= read -r existing; do
+            if [[ "$existing" =~ ^v(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})$ ]]; then
+              existing_code=$((BASH_REMATCH[1] * 1000000 + BASH_REMATCH[2] * 1000 + BASH_REMATCH[3] + 1))
+              if (( code <= existing_code )); then
+                echo "::error::Version must be greater than all existing stable release tags."
+                exit 1
+              fi
+            fi
+          done < <(git tag --list 'v*')
+          echo "name=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0" "platform-tools"
+
+      - name: Validate release signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          for secret in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [[ -z "${!secret}" ]]; then
+              echo "::error::Missing Android signing secret: $secret (see docs/cicd.md)"
+              exit 1
+            fi
+          done
+
+      - name: Build web assets and sync Capacitor
+        run: |
+          npm ci
+          npm run build
+          npx cap sync android
+
+      - name: Build release APK
+        working-directory: android
+        env:
+          RELEASE_VERSION_NAME: ${{ steps.version.outputs.name }}
+          RELEASE_VERSION_CODE: ${{ steps.version.outputs.code }}
+        run: |
+          ./gradlew --no-daemon assembleRelease \
+            "-PreleaseVersionName=$RELEASE_VERSION_NAME" \
+            "-PreleaseVersionCode=$RELEASE_VERSION_CODE"
+
+      - name: Sign release APK
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          umask 077
+          keystore="$RUNNER_TEMP/cbreader-release.jks"
+          trap 'rm -f "$keystore"' EXIT
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          output=android/app/build/outputs/apk/release
+          "$tools/zipalign" -f -p 4 "$output/app-release-unsigned.apk" "$RUNNER_TEMP/app-release-aligned.apk"
+          "$tools/apksigner" sign --ks "$keystore" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEY_PASSWORD \
+            --out "$output/app-release.apk" "$RUNNER_TEMP/app-release-aligned.apk"
+          "$tools/apksigner" verify --verbose "$output/app-release.apk"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: cbreader-${{ steps.version.outputs.tag }}
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Create and push release tag
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$RELEASE_TAG" "$GITHUB_SHA" -m "Release $RELEASE_TAG"
+          git push origin "refs/tags/$RELEASE_TAG"
