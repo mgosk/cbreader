@@ -2,7 +2,7 @@
 
 ## Tests
 
-The [Tests workflow](../.github/workflows/tests.yml) runs on every push to any branch, including `master`, and on pull requests. You can also run it manually from **Actions > Tests > Run workflow**.
+The [Tests workflow](../.github/workflows/test.yml) runs on every push to any branch, including `master`, and on pull requests. You can also run it manually from **Actions > Tests > Run workflow**.
 
 It installs dependencies with `npm ci`, runs the Vitest unit tests, checks TypeScript and the production build, and runs the Playwright browser tests in Chromium. Browser setup follows the [Playwright CI instructions](https://playwright.dev/docs/ci). The private comic test is skipped because CI does not have `CBREADER_TEST_CBZ`; the generated-fixture browser tests still run.
 
