@@ -8,6 +8,16 @@ It installs dependencies with `npm ci`, runs the Vitest unit tests, checks TypeS
 
 Browser reports and failure traces are available in the run's `playwright-report-RUN_NUMBER` artifact for 14 days. This workflow requires no repository secrets.
 
+## Nightly checks
+
+The [nightly workflow](../.github/workflows/nightly.yml) runs every night at 01:17 UTC (02:17 in Warsaw in winter, 03:17 in summer) on `master`. Keep `master` as the default branch: [GitHub schedules run from the default branch](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule), and this workflow restricts scheduled checks to `master`.
+
+To run it manually, open **Actions > nightly > Run workflow**, select the branch in **Use workflow from**, and click **Run workflow**. The nightly and reusable test workflows must exist on that branch; the nightly workflow must also be on the default branch to appear in the UI.
+
+It reuses the Tests workflow for unit tests, TypeScript checks, the production web build, and Chromium browser tests. After tests pass, it builds fresh web assets, syncs Capacitor, and builds an unsigned Android release APK. The workflow uses read-only repository permissions and requires no signing secrets. It creates no tags or published releases and does not upload to Google Play.
+
+Download the unsigned APK from `cbreader-nightly-RUN_NUMBER`; it must be signed before installation. Browser reports and Android build reports are also retained as run artifacts for 14 days, including reports available after failures.
+
 ## Releases
 
 All release APKs are built and signed through the [release workflow](../.github/workflows/release.yml), which you start manually in the GitHub Actions UI. The pipeline builds the selected `master` commit and creates its release tag after the signed APK is verified and uploaded. Local Android builds are for debug development. Git tags are the source of truth for release versions; use stable [SemVer](https://semver.org/) tags such as `v0.1.0`, `v0.1.1`, or `v1.0.0`. Prerelease and build metadata suffixes are not supported by this pipeline.
