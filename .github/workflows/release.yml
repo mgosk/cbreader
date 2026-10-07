@@ -111,23 +111,26 @@ jobs:
             "-PreleaseVersionCode=$RELEASE_VERSION_CODE"
 
       - name: Sign release APK
+        id: sign_apk
+        uses: r0adkll/sign-android-release@349ebdef58775b1e0d8099458af0816dc79b6407 # v1
+        with:
+          releaseDirectory: android/app/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          alias: ${{ secrets.ANDROID_KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
         env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          BUILD_TOOLS_VERSION: '35.0.0'
+
+      - name: Remove temporary signing keystore
+        if: ${{ always() }}
+        run: rm -f android/app/build/outputs/apk/release/signingKey.jks
+
+      - name: Prepare signed APK artifact
+        env:
+          SIGNED_APK: ${{ steps.sign_apk.outputs.signedReleaseFile }}
         run: |
-          umask 077
-          keystore="$RUNNER_TEMP/cbreader-release.jks"
-          trap 'rm -f "$keystore"' EXIT
-          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore"
-          tools="$ANDROID_HOME/build-tools/35.0.0"
-          output=android/app/build/outputs/apk/release
-          "$tools/zipalign" -f -p 4 "$output/app-release-unsigned.apk" "$RUNNER_TEMP/app-release-aligned.apk"
-          "$tools/apksigner" sign --ks "$keystore" --ks-key-alias "$KEY_ALIAS" \
-            --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEY_PASSWORD \
-            --out "$output/app-release.apk" "$RUNNER_TEMP/app-release-aligned.apk"
-          "$tools/apksigner" verify --verbose "$output/app-release.apk"
+          cp "$SIGNED_APK" android/app/build/outputs/apk/release/app-release.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

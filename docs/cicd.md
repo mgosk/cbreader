@@ -32,7 +32,7 @@ Configure these repository secrets under **Settings > Secrets and variables > Ac
 | `ANDROID_KEY_ALIAS` | Alias of the signing key in the keystore. |
 | `ANDROID_KEY_PASSWORD` | Signing key password. |
 
-Base64 encoding does not encrypt the keystore; store its encoded value only as a secret. APK building and signing happen in GitHub Actions after this one-time setup.
+Base64 encoding does not encrypt the keystore; store its encoded value only as a secret. APK building and signing happen in GitHub Actions after this one-time setup. Signing uses [Sign Android release](https://github.com/marketplace/actions/sign-android-release), pinned to the `v1` commit `349ebdef58775b1e0d8099458af0816dc79b6407`, with Build Tools 35.0.0. The action receives the four secrets above; the workflow removes its temporary keystore even if signing fails and uploads only the signed APK.
 
 ### Create and build a release
 
@@ -45,4 +45,4 @@ Create release tags through this pipeline. Keep published tags unchanged. The wo
 
 The workflow validates the new version and signing secrets before building. It passes the release version to Gradle as `releaseVersionName` and calculates `releaseVersionCode` as `major * 1000000 + minor * 1000 + patch + 1`. For example, `v1.2.3` produces version name `1.2.3` and version code `1002004`. This preserves SemVer ordering for [Android updates](https://developer.android.com/studio/publish/versioning). Major is limited to 2099 and minor/patch to 999 to stay within Android's version code limit. Existing versions and versions below the highest stable release tag are rejected. No version bump commits or run-number-based versions are needed.
 
-When the run succeeds, download `cbreader-v0.1.0` (using your tag) from its **Artifacts** section and extract `app-release.apk`. Artifacts are retained for 14 days. The workflow aligns, signs, and verifies the APK using [Android's APK signing tools](https://developer.android.com/tools/apksigner). The workflow requires `contents: write` to push the release tag. It does not publish a GitHub release or upload to Google Play.
+When the run succeeds, download `cbreader-v0.1.0` (using your tag) from its **Artifacts** section and extract `app-release.apk`. Artifacts are retained for 14 days. The signing action checks APK alignment, signs, and verifies the APK using [Android's APK signing tools](https://developer.android.com/tools/apksigner). The workflow copies the action's `signedReleaseFile` output to `app-release.apk` for upload. The workflow requires `contents: write` to push the release tag. It does not publish a GitHub release or upload to Google Play.
