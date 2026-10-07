@@ -12,6 +12,8 @@ Browser reports and failure traces are available in the run's `playwright-report
 
 All release APKs are built and signed through the [release workflow](../.github/workflows/release.yml), which you start manually in the GitHub Actions UI. The pipeline builds the selected `master` commit and creates its release tag after the signed APK is verified and uploaded. Local Android builds are for debug development. Git tags are the source of truth for release versions; use stable [SemVer](https://semver.org/) tags such as `v0.1.0`, `v0.1.1`, or `v1.0.0`. Prerelease and build metadata suffixes are not supported by this pipeline.
 
+Android build reports from `android/build/report/` and `android/build/reports/` are uploaded as `android-build-reports-RUN_NUMBER`, including when the release fails. Reports are retained for 14 days; missing report directories are ignored.
+
 ### Signing setup
 
 Reuse your existing release keystore. If this is the first release and you do not have one, create it once with the JDK's `keytool` outside the repository:

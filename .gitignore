@@ -8,3 +8,6 @@ playwright-report/
 
 __pycache__/
 *.pyc
+
+# Private Android release signing material
+.android-signing/
