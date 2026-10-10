@@ -92,6 +92,6 @@ Apply the same fit, zoom, and pan transform to the image and tap areas. Give eac
 
 ## Packaging and migration
 
-Keep editable authoring JSON in the project's `translations/` directory. `scripts/package_cbz.py` packages it into a new CBZ at root `translations.json`, preserving other entries and image order. The output must not already exist. See the [README](../README.md) for the command.
+Keep editable authoring JSON outside the comic archive. Package it into a CBZ at root `translations.json`, preserving other entries and image order. The reader repository does not include a packaging script or starter comic; see [development instructions](development.md#local-setup) for opening prepared archives locally.
 
-The script also migrates version 1 JSON: it turns `languages.translation` into a one-element `languages.translations` list, moves each item's language-specific fields (formerly `en` and `pl`) into `original` and `translations`, removes the obsolete `source` object, and sets version `2`. Repackaging removes the old `translations/en-pl.json` entry and replaces any existing root translation entry. The reader requires version 2 at the new root path; old CBZs need repackaging. The existing starter draft has been migrated and still contains only Polish translations.
+To migrate version 1 JSON, turn `languages.translation` into a one-element `languages.translations` list, move each item's language-specific fields (formerly `en` and `pl`) into `original` and `translations`, remove the obsolete `source` object, and set version `2`. When repackaging, remove the old `translations/en-pl.json` entry and replace any existing root translation entry. The reader requires version 2 at the new root path; old CBZs need repackaging.
