@@ -220,7 +220,7 @@ function Reader({
   const [zoom, setZoom] = useState(100);
   const { url, previous, next, error } = usePageImages(book.entries, page);
   const [selected, setSelected] = useState<TextItem>();
-  const [highlights, setHighlights] = useState(!tablet);
+  const [highlights, setHighlights] = useState(true);
   const [naturalWidth, setNaturalWidth] = useState(1);
   const [naturalHeight, setNaturalHeight] = useState(1);
   const [viewportSize, setViewportSize] = useState({ width: 1, height: 1 });
