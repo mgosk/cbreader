@@ -270,6 +270,42 @@ h2 {
   padding: 12px 18px;
   border-bottom: 1px solid #dce2d8;
 }
+.settings-view {
+  width: min(560px, 100%);
+  margin: 32px auto;
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #d7dfd2;
+  border-radius: 10px;
+  color: #355448;
+}
+.settings-view h1 {
+  margin: 24px 0 12px;
+}
+.settings-content {
+  display: grid;
+  gap: 20px;
+  padding: 12px 0;
+}
+.settings-content label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.settings-content select {
+  font: inherit;
+  padding: 6px;
+  border: 1px solid #d7dfd2;
+  border-radius: 5px;
+}
+.settings-content p {
+  margin: 0;
+  line-height: 1.5;
+}
+.settings-content button {
+  justify-self: start;
+}
 .toolbar button {
   border: 0;
   background: #f3f5ef;
@@ -699,6 +735,8 @@ h2 {
 .tablet-reader .toolbar {
   top: max(18px, env(safe-area-inset-top));
   gap: 14px;
+  max-height: calc(100dvh - 140px);
+  overflow-y: auto;
 }
 .tablet-reader .canvas-footer,
 .tablet-reader .fullscreen-caption {

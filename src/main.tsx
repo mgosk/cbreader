@@ -1,8 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { openArchive, type Translation, type TextItem } from "./content";
 import { usePageImages } from "./page-images";
 import { loadProgress, saveProgress } from "./storage";
+import {
+  defaultSettings,
+  loadSettings,
+  saveSettings,
+  type UserSettings,
+} from "./settings";
 import "./style.css";
 import {
   useFullscreen,
@@ -17,6 +23,22 @@ type Book = Awaited<ReturnType<typeof openArchive>> & {
 const message = (e: unknown) =>
   e instanceof Error ? e.message : "Something went wrong. Please try again.";
 function App() {
+  const [settings, setSettings] = useState(loadSettings);
+  const [settingsWarning, setSettingsWarning] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
+  const settingsTrigger = useRef<HTMLElement | null>(null);
+  function openSettings() {
+    settingsTrigger.current = document.activeElement as HTMLElement;
+    setSettingsOpen(true);
+  }
+  useEffect(() => {
+    if (!settingsOpen) settingsTrigger.current?.focus({ preventScroll: true });
+  }, [settingsOpen]);
+  function updateSettings(next: UserSettings) {
+    setSettings(next);
+    setSettingsWarning(!saveSettings(next));
+  }
   const tablet = useTabletLayout();
   const [cbz, setCbz] = useState<File>();
   const [book, setBook] = useState<Book>();
@@ -55,12 +77,15 @@ function App() {
     <>
       <header
         className="brand"
-        style={tablet && book ? { display: "none" } : undefined}
+        style={
+          tablet && book && !settingsOpen ? { display: "none" } : undefined
+        }
       >
         <a
           href="/"
           onClick={(e) => {
             e.preventDefault();
+            setSettingsOpen(false);
             if (book) {
               void book.close();
               setBook(undefined);
@@ -74,74 +99,168 @@ function App() {
         </a>
         <span className="eyebrow">A LITTLE READING. A NEW LANGUAGE.</span>
       </header>
-      {book ? (
-        <Reader
-          key={book.name + book.translation.bookId}
-          book={book}
-          tablet={tablet}
-          warning={storageWarning}
-          onStorageError={() =>
-            setStorageWarning(
-              "Reading progress cannot be saved in this browser session.",
-            )
-          }
-          onClose={() => {
-            void book.close();
-            setBook(undefined);
-          }}
+      {settingsOpen && (
+        <Settings
+          settings={settings}
+          onChange={updateSettings}
+          warning={settingsWarning}
+          onBack={closeSettings}
+          reading={Boolean(book)}
         />
-      ) : (
-        <main className="welcome">
-          <section className="intro">
-            <div className="eyebrow">YOUR COMICS, ANOTHER LANGUAGE</div>
-            <h1>
-              A story in every panel.
-              <br />
-              <em>A word at a time.</em>
-            </h1>
-            <p>
-              Read your favourite comics. Tap a text bubble to discover its
-              translation in your chosen language, and keep the story moving.
-            </p>
-            <div className="features">
-              <span>01 &nbsp; Open a comic</span>
-              <span>02 &nbsp; Tap a text bubble</span>
-              <span>03 &nbsp; Start exploring</span>
-            </div>
-          </section>
-          <section className="import-card" aria-labelledby="open-title">
-            <div className="card-number">LET’S TURN THE FIRST PAGE</div>
-            <h2 id="open-title">Open your comic</h2>
-            <p className="muted">Choose a comic with translations included.</p>
-            <FilePicker
-              label="Comic archive"
-              hint=".cbz"
-              accept=".cbz"
-              file={cbz}
-              disabled={busy}
-              onFile={setCbz}
-            />
-            {error && (
-              <p role="alert" className="error">
-                {error}
-              </p>
-            )}
-            <button
-              className="primary"
-              disabled={!cbz || busy}
-              onClick={() => void open()}
-            >
-              {busy ? "Opening your comic…" : "Start reading →"}
-            </button>
-            <p className="privacy">
-              {tablet && <>Tap the page to show reading controls. </>}
-              Your comic stays on this device. Reopen the comic to resume
-              reading.
-            </p>
-          </section>
-        </main>
       )}
+      <div hidden={settingsOpen}>
+        {book ? (
+          <Reader
+            key={book.name + book.translation.bookId}
+            book={book}
+            tablet={tablet}
+            settings={settings}
+            onSettingsChange={updateSettings}
+            active={!settingsOpen}
+            onOpenSettings={openSettings}
+            warning={storageWarning}
+            onStorageError={() =>
+              setStorageWarning(
+                "Reading progress cannot be saved in this browser session.",
+              )
+            }
+            onClose={() => {
+              void book.close();
+              setBook(undefined);
+            }}
+          />
+        ) : (
+          <main className="welcome">
+            <section className="intro">
+              <div className="eyebrow">YOUR COMICS, ANOTHER LANGUAGE</div>
+              <h1>
+                A story in every panel.
+                <br />
+                <em>A word at a time.</em>
+              </h1>
+              <p>
+                Read your favourite comics. Tap a text bubble to discover its
+                translation in your chosen language, and keep the story moving.
+              </p>
+              <div className="features">
+                <span>01 &nbsp; Open a comic</span>
+                <span>02 &nbsp; Tap a text bubble</span>
+                <span>03 &nbsp; Start exploring</span>
+              </div>
+            </section>
+            <section className="import-card" aria-labelledby="open-title">
+              <div className="card-number">LET’S TURN THE FIRST PAGE</div>
+              <h2 id="open-title">Open your comic</h2>
+              <p className="muted">
+                Choose a comic with translations included.
+              </p>
+              <FilePicker
+                label="Comic archive"
+                hint=".cbz"
+                accept=".cbz"
+                file={cbz}
+                disabled={busy}
+                onFile={setCbz}
+              />
+              {error && (
+                <p role="alert" className="error">
+                  {error}
+                </p>
+              )}
+              <button
+                className="primary"
+                disabled={!cbz || busy}
+                onClick={() => void open()}
+              >
+                {busy ? "Opening your comic…" : "Start reading →"}
+              </button>
+              <p className="privacy">
+                {tablet && <>Tap the page to show reading controls. </>}
+                Your comic stays on this device. Reopen the comic to resume
+                reading.
+              </p>
+              <button className="secondary" onClick={openSettings}>
+                Settings
+              </button>
+            </section>
+          </main>
+        )}
+      </div>
     </>
+  );
+}
+function Settings({
+  settings,
+  onChange,
+  warning,
+  onBack,
+  reading,
+}: {
+  settings: UserSettings;
+  onChange: (settings: UserSettings) => void;
+  warning: boolean;
+  onBack: () => void;
+  reading: boolean;
+}) {
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    heading.current?.focus();
+    function key(event: KeyboardEvent) {
+      if (event.key === "Escape") onBack();
+    }
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [onBack]);
+  return (
+    <main className="settings-view" aria-labelledby="settings-title">
+      <button className="secondary" onClick={onBack}>
+        {reading ? "← Back to comic" : "← Back"}
+      </button>
+      <h1 ref={heading} id="settings-title" tabIndex={-1}>
+        Settings
+      </h1>
+      <div className="settings-content">
+        <label>
+          <input
+            type="checkbox"
+            checked={settings.showTextRegions}
+            onChange={(event) =>
+              onChange({ ...settings, showTextRegions: event.target.checked })
+            }
+          />{" "}
+          Show text regions by default
+        </label>
+        <label>
+          Default zoom
+          <select
+            aria-label="Default zoom"
+            value={settings.defaultZoom}
+            onChange={(event) =>
+              onChange({ ...settings, defaultZoom: Number(event.target.value) })
+            }
+          >
+            {[100, 125, 150, 175, 200, 225, 250].map((zoom) => (
+              <option key={zoom} value={zoom}>
+                {zoom}%{zoom === 100 ? " · Fit page" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p>
+          Settings are saved on this device. Your translation language is
+          remembered when you change it while reading.
+        </p>
+        <button type="button" onClick={() => onChange({ ...defaultSettings })}>
+          Reset settings
+        </button>
+        {warning && (
+          <p role="status">
+            Settings apply for this session, but could not be saved on this
+            device.
+          </p>
+        )}
+      </div>
+    </main>
   );
 }
 function FilePicker({
@@ -199,28 +318,39 @@ function Reader({
   warning,
   onStorageError,
   onClose,
+  settings,
+  onSettingsChange,
+  active,
+  onOpenSettings,
 }: {
   book: Book;
   tablet: boolean;
   warning: string;
   onStorageError: () => void;
   onClose: () => void;
+  settings: UserSettings;
+  onSettingsChange: (settings: UserSettings) => void;
+  active: boolean;
+  onOpenSettings: () => void;
 }) {
   const [page, setPage] = useState(book.initialPage);
   const [controlsVisible, setControlsVisible] = useState(false);
   const controlsToggle = useRef<HTMLButtonElement>(null);
-  const [language, setLanguage] = useState(
-    book.translation.languages.translations[0],
-  );
+  const language = book.translation.languages.translations.includes(
+    settings.translationLanguage,
+  )
+    ? settings.translationLanguage
+    : book.translation.languages.translations[0];
   const languageName = (tag: string) =>
     new Intl.DisplayNames(["en"], { type: "language" }).of(tag) ?? tag;
   const translatedText = (item: TextItem) =>
     item.translations[language] ??
     "Translation not available in this language yet.";
-  const [zoom, setZoom] = useState(100);
+  const [zoom, setZoom] = useState(settings.defaultZoom);
+  useEffect(() => setZoom(settings.defaultZoom), [settings.defaultZoom]);
   const { url, previous, next, error } = usePageImages(book.entries, page);
   const [selected, setSelected] = useState<TextItem>();
-  const [highlights, setHighlights] = useState(true);
+  const highlights = settings.showTextRegions;
   const [naturalWidth, setNaturalWidth] = useState(1);
   const [naturalHeight, setNaturalHeight] = useState(1);
   const [viewportSize, setViewportSize] = useState({ width: 1, height: 1 });
@@ -236,7 +366,7 @@ function Reader({
     (a, b) => a.order - b.order,
   );
   const swipe = usePageSwipe(
-    zoom === 100 && Boolean(url),
+    active && zoom === 100 && Boolean(url),
     (direction) => navigate(page + direction),
     page,
     book.entries.length,
@@ -253,13 +383,13 @@ function Reader({
     setPage(Math.max(0, Math.min(book.entries.length - 1, next)));
   }
   useEffect(() => {
-    if (!tablet) return;
+    if (!tablet || !active) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = previous;
     };
-  }, [tablet]);
+  }, [tablet, active]);
   useEffect(() => {
     if (!viewport.current) return;
     const observer = new ResizeObserver(([entry]) =>
@@ -293,6 +423,7 @@ function Reader({
   }, [url]);
   useEffect(() => {
     function key(e: KeyboardEvent) {
+      if (!active) return;
       if (
         e.target instanceof HTMLElement &&
         /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)
@@ -315,7 +446,7 @@ function Reader({
     }
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [page, book, tablet]);
+  }, [page, book, tablet, active]);
   return (
     <main className={`reader ${tablet ? "tablet-reader" : ""}`}>
       <div className="reader-heading">
@@ -411,7 +542,12 @@ function Reader({
                 <select
                   aria-label="Translation language"
                   value={language}
-                  onChange={(event) => setLanguage(event.target.value)}
+                  onChange={(event) =>
+                    onSettingsChange({
+                      ...settings,
+                      translationLanguage: event.target.value,
+                    })
+                  }
                 >
                   {book.translation.languages.translations.map((tag) => (
                     <option key={tag} value={tag}>
@@ -450,6 +586,14 @@ function Reader({
                   +
                 </button>
               </div>
+              <button
+                onClick={async () => {
+                  if (fullscreen) await toggle();
+                  onOpenSettings();
+                }}
+              >
+                Settings
+              </button>
             </div>
           )}
           <div
@@ -566,7 +710,12 @@ function Reader({
                 <input
                   type="checkbox"
                   checked={highlights}
-                  onChange={(e) => setHighlights(e.target.checked)}
+                  onChange={(e) =>
+                    onSettingsChange({
+                      ...settings,
+                      showTextRegions: e.target.checked,
+                    })
+                  }
                 />{" "}
                 Show text regions
               </label>

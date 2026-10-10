@@ -93,6 +93,117 @@ test("import, translate, zoom, turn pages and restore progress", async ({
   await expect(page.getByAltText("Comic page 2")).toBeVisible();
   await expect(page.getByRole("button", { name: "Next page" })).toBeDisabled();
 });
+test("settings persist across reloads and books, and reset to defaults", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByText("Settings", { exact: true }).click();
+  await expect(page.getByLabel("Show text regions by default")).toBeChecked();
+  await page.getByLabel("Show text regions by default").uncheck();
+  await page.getByLabel("Default zoom").selectOption("150");
+  await expect(
+    page.getByRole("heading", { name: "Settings", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Start reading" }),
+  ).toBeHidden();
+  await page.getByRole("button", { name: "Back", exact: false }).click();
+  await choose(page);
+  await expect(page.locator(".hotspot.outlined")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reset zoom" })).toHaveText(
+    "150%",
+  );
+  await page.getByLabel("Translation language").selectOption("de");
+  await page.reload();
+  await choose(page);
+  await expect(page.getByLabel("Translation language")).toHaveValue("de");
+  await expect(page.getByRole("button", { name: "Reset zoom" })).toHaveText(
+    "150%",
+  );
+  await expect(
+    page.getByLabel("Show text regions", { exact: true }),
+  ).not.toBeChecked();
+  await page.getByRole("button", { name: "Change comic" }).click();
+  const polishOnly = structuredClone(translation);
+  polishOnly.languages.translations = ["pl"];
+  for (const page of polishOnly.pages) {
+    for (const item of page.items) {
+      Reflect.deleteProperty(item.translations, "de");
+    }
+  }
+  await choose(page, polishOnly);
+  await expect(page.getByLabel("Translation language")).toHaveValue("pl");
+  await page.getByRole("button", { name: "Change comic" }).click();
+  await choose(page);
+  await expect(page.getByLabel("Translation language")).toHaveValue("de");
+  await page.getByText("Settings", { exact: true }).click();
+  await page.getByRole("button", { name: "Reset settings" }).click();
+  await page.getByRole("button", { name: "Back to comic" }).click();
+  await expect(page.getByLabel("Translation language")).toHaveValue("pl");
+  await expect(page.getByRole("button", { name: "Reset zoom" })).toHaveText(
+    "100%",
+  );
+  await expect(page.locator(".hotspot.outlined")).toHaveCount(1);
+  await page.reload();
+  await choose(page);
+  await expect(
+    page.getByLabel("Show text regions", { exact: true }),
+  ).toBeChecked();
+});
+
+test("settings view preserves the open page and zoom, and restores focus", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await choose(page);
+  await page.getByRole("button", { name: "Next page" }).click();
+  await page.getByRole("button", { name: "Zoom in" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Settings", exact: true }),
+  ).toBeFocused();
+  await expect(page.getByAltText("Comic page 2")).toBeHidden();
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("Escape");
+  await expect(page.getByAltText("Comic page 2")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reset zoom" })).toHaveText(
+    "125%",
+  );
+  await expect(
+    page.getByRole("button", { name: "Settings", exact: true }),
+  ).toBeFocused();
+});
+
+test("settings view opens from fullscreen", async ({ page }) => {
+  await page.goto("/");
+  await choose(page);
+  await page.getByRole("button", { name: "Enter fullscreen" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Settings", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Back to comic" }).click();
+  await expect(page.getByAltText("Comic page 1")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Enter fullscreen" }),
+  ).toBeVisible();
+});
+
+test("settings remain usable when saving is blocked", async ({ page }) => {
+  await page.addInitScript(() => {
+    Storage.prototype.setItem = () => {
+      throw new Error("Storage blocked");
+    };
+  });
+  await page.goto("/");
+  await page.getByText("Settings", { exact: true }).click();
+  await page.getByLabel("Show text regions by default").uncheck();
+  await expect(page.getByRole("status")).toContainText("could not be saved");
+  await page.getByRole("button", { name: "Back", exact: false }).click();
+  await choose(page);
+  await expect(page.locator(".hotspot.outlined")).toHaveCount(0);
+});
+
 test("rejects a translation for different images", async ({ page }) => {
   await page.goto("/");
   const wrong = structuredClone(translation);
@@ -447,7 +558,7 @@ test.describe("tablet reading", () => {
     await expect(page.locator(".translation-panel")).toBeHidden();
     await expect(page.locator(".toolbar")).toHaveCount(0);
     await expect(page.locator(".canvas-footer")).toHaveCount(0);
-    await expect(page.locator(".hotspot.outlined")).toHaveCount(0);
+    await expect(page.locator(".hotspot.outlined")).toHaveCount(1);
     await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
     const before = (await image.boundingBox())!;
     expect(before.x).toBeGreaterThanOrEqual(0);
@@ -460,6 +571,11 @@ test.describe("tablet reading", () => {
       page.getByRole("button", { name: "Hide reading controls" }),
     ).toBeVisible();
     await expect(page.getByLabel("Translation language")).toBeVisible();
+    await page.getByText("Settings", { exact: true }).click();
+    await page.getByLabel("Show text regions by default").uncheck();
+    await expect(image).toBeHidden();
+    await page.getByRole("button", { name: "Back to comic" }).click();
+    await expect(page.locator(".hotspot.outlined")).toHaveCount(0);
     expect(await image.boundingBox()).toEqual(before); // Overlay never shrinks the page.
     await page.getByRole("button", { name: "Hide reading controls" }).click();
     await expect(page.locator(".toolbar")).toHaveCount(0);
