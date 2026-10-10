@@ -58,6 +58,8 @@ The packaging script also accepts version 1 authoring JSON and migrates it to ve
 
 ## Tablet reading
 
+Translation reveals have a 15-second cooldown by default. Set **Translation timeout (seconds)** in Settings to change the interval, or use 0 to remove the limit. A countdown shows when another translation can be revealed. The cooldown covers both page regions and the line list, continues across pages and comics during the session, and allows dismissing the current translation at any time.
+
 Open **Settings** on the welcome screen or in the reader controls to visit the settings view and choose text-region visibility and default zoom, or reset preferences. Use **Back** or **Escape** to return; your open comic and page are preserved. Text regions are enabled by default. Preferences are saved on this device, including the translation language selected while reading. Books without your preferred language use their first available translation. If device storage is unavailable, settings still apply for the current session.
 
 On touch tablets, opening a book shows only the page, fitted to the screen in portrait or landscape. Tap a blank area to reveal floating controls, then tap again or choose **Hide reading controls** to return to the page. Swipe to turn pages; tap text to reveal a translation. The controls include language, zoom, page selection, and **Change comic**. With a keyboard, press **M** to toggle controls or **Escape** to dismiss them. Phone and desktop layouts retain their usual controls.

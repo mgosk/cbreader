@@ -2,12 +2,14 @@ export type UserSettings = {
   showTextRegions: boolean;
   defaultZoom: number;
   translationLanguage: string;
+  translationTimeout: number;
 };
 
 export const defaultSettings: UserSettings = {
   showTextRegions: true,
   defaultZoom: 100,
   translationLanguage: "",
+  translationTimeout: 15,
 };
 
 const storageKey = "CBreader.settings";
@@ -16,6 +18,12 @@ export function loadSettings(): UserSettings {
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey) ?? "null");
     return {
+      translationTimeout:
+        Number.isInteger(saved?.translationTimeout) &&
+        saved.translationTimeout >= 0 &&
+        saved.translationTimeout <= 3600
+          ? saved.translationTimeout
+          : defaultSettings.translationTimeout,
       showTextRegions:
         typeof saved?.showTextRegions === "boolean"
           ? saved.showTextRegions

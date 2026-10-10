@@ -293,11 +293,41 @@ h2 {
   gap: 10px;
   flex-wrap: wrap;
 }
-.settings-content select {
+.settings-content select,
+.settings-content input[type="number"] {
   font: inherit;
   padding: 6px;
   border: 1px solid #d7dfd2;
   border-radius: 5px;
+}
+.settings-content input[type="number"] {
+  width: 100px;
+}
+.translation-cooldown {
+  margin: 0;
+  padding: 8px 18px;
+  font-size: 13px;
+  color: #355448;
+  background: #faf9f3;
+}
+.toolbar > .translation-cooldown {
+  flex-basis: 100%;
+  border-radius: 8px;
+}
+.tablet-reader .canvas-panel > .translation-cooldown {
+  position: absolute;
+  top: max(18px, env(safe-area-inset-top));
+  right: max(18px, env(safe-area-inset-right));
+  z-index: 7;
+  border-radius: 12px;
+  pointer-events: none;
+}
+.hotspot[aria-disabled="true"] {
+  cursor: wait;
+}
+.region-list button[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: wait;
 }
 .settings-content p {
   margin: 0;

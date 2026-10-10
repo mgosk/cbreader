@@ -101,6 +101,10 @@ test("settings persist across reloads and books, and reset to defaults", async (
   await expect(page.getByLabel("Show text regions by default")).toBeChecked();
   await page.getByLabel("Show text regions by default").uncheck();
   await page.getByLabel("Default zoom").selectOption("150");
+  await expect(page.getByLabel("Translation timeout (seconds)")).toHaveValue(
+    "15",
+  );
+  await page.getByLabel("Translation timeout (seconds)").fill("5");
   await expect(
     page.getByRole("heading", { name: "Settings", exact: true }),
   ).toBeVisible();
@@ -137,7 +141,13 @@ test("settings persist across reloads and books, and reset to defaults", async (
   await choose(page);
   await expect(page.getByLabel("Translation language")).toHaveValue("de");
   await page.getByText("Settings", { exact: true }).click();
+  await expect(page.getByLabel("Translation timeout (seconds)")).toHaveValue(
+    "5",
+  );
   await page.getByRole("button", { name: "Reset settings" }).click();
+  await expect(page.getByLabel("Translation timeout (seconds)")).toHaveValue(
+    "15",
+  );
   await page.getByRole("button", { name: "Back to comic" }).click();
   await expect(page.getByLabel("Translation language")).toHaveValue("pl");
   await expect(page.getByRole("button", { name: "Reset zoom" })).toHaveText(
@@ -149,6 +159,78 @@ test("settings persist across reloads and books, and reset to defaults", async (
   await expect(
     page.getByLabel("Show text regions", { exact: true }),
   ).toBeChecked();
+});
+
+test("translation cooldown blocks repeated reveals through hotspots and the line list", async ({
+  page,
+}) => {
+  const data = structuredClone(translation);
+  data.pages[0].items.push({
+    ...structuredClone(data.pages[0].items[0]),
+    id: "two",
+    order: 2,
+    original: "Bye!",
+    rect: { x: 0.1, y: 0.6, width: 0.6, height: 0.3 },
+    translations: { pl: "Pa!", de: "Tschüss!" },
+  });
+  await page.goto("/");
+  await choose(page, data);
+  await page.clock.install();
+  await page.clock.pauseAt(new Date(Date.now() + 1000));
+  const first = page.getByRole("button", { name: "Translate: Hello!" });
+  const second = page.getByRole("button", { name: "Translate: Bye!" });
+  await first.click();
+  await expect(page.getByText("Next translation in 15s")).toBeVisible();
+  await expect(second).toBeDisabled();
+  await second.click({ force: true });
+  await expect(page.locator(".translation-card")).toContainText("Cześć!");
+  await page.getByRole("button", { name: "Close translation" }).click();
+  await first.click({ force: true });
+  await page.locator(".region-list button").nth(1).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".translation-card")).toHaveCount(0);
+  await page.getByRole("button", { name: "Next page" }).click();
+  await page.getByRole("button", { name: "Previous page" }).click();
+  await first.click({ force: true });
+  await expect(page.locator(".translation-card")).toHaveCount(0);
+  await page.getByRole("button", { name: "Change comic" }).click();
+  await choose(page, data);
+  await first.click({ force: true });
+  await expect(page.locator(".translation-card")).toHaveCount(0);
+  await page.clock.fastForward(14000);
+  await expect(page.getByText("Next translation in 1s")).toBeVisible();
+  await second.click({ force: true });
+  await expect(page.locator(".translation-card")).toHaveCount(0);
+  await page.clock.fastForward(1000);
+  await page.locator(".region-list button").nth(1).click();
+  await expect(page.locator(".translation-card")).toContainText("Pa!");
+  await expect(page.getByText("Next translation in 15s")).toBeVisible();
+});
+
+test("changing the timeout updates the active cooldown and zero removes it", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await choose(page);
+  await page.clock.install();
+  await page.clock.pauseAt(new Date(Date.now() + 1000));
+  const reveal = page.getByRole("button", { name: "Translate: Hello!" });
+  await reveal.click();
+  await page.getByRole("button", { name: "Close translation" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByLabel("Translation timeout (seconds)").fill("2");
+  await page.getByRole("button", { name: "Back to comic" }).click();
+  await expect(page.getByText("Next translation in 2s")).toBeVisible();
+  await page.clock.fastForward(2000);
+  await reveal.click();
+  await expect(page.locator(".translation-card")).toBeVisible();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByLabel("Translation timeout (seconds)").fill("0");
+  await page.getByRole("button", { name: "Back to comic" }).click();
+  await reveal.click();
+  await reveal.click();
+  await expect(page.locator(".translation-card")).toBeVisible();
+  await expect(page.locator("#translation-cooldown")).toHaveCount(0);
 });
 
 test("settings view preserves the open page and zoom, and restores focus", async ({
@@ -582,8 +664,13 @@ test.describe("tablet reading", () => {
 
     await page.getByRole("button", { name: "Translate: Hello!" }).tap();
     await expect(page.locator(".fullscreen-caption")).toContainText("Cześć!");
+    await expect(page.locator("#translation-cooldown")).toBeVisible();
     await expect(page.locator(".toolbar")).toHaveCount(0);
     await page.getByRole("button", { name: "Dismiss translation" }).tap();
+    await expect(page.locator(".fullscreen-caption")).toHaveCount(0);
+    await page
+      .getByRole("button", { name: "Translate: Hello!" })
+      .tap({ force: true });
     await expect(page.locator(".fullscreen-caption")).toHaveCount(0);
 
     await page.setViewportSize({ width: 1180, height: 820 });

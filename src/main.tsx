@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { openArchive, type Translation, type TextItem } from "./content";
 import { usePageImages } from "./page-images";
 import { loadProgress, saveProgress } from "./storage";
+import { useTranslationCooldown } from "./translation-cooldown";
 import {
   defaultSettings,
   loadSettings,
@@ -24,6 +25,7 @@ const message = (e: unknown) =>
   e instanceof Error ? e.message : "Something went wrong. Please try again.";
 function App() {
   const [settings, setSettings] = useState(loadSettings);
+  const cooldown = useTranslationCooldown(settings.translationTimeout);
   const [settingsWarning, setSettingsWarning] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
@@ -118,6 +120,7 @@ function App() {
             onSettingsChange={updateSettings}
             active={!settingsOpen}
             onOpenSettings={openSettings}
+            cooldown={cooldown}
             warning={storageWarning}
             onStorageError={() =>
               setStorageWarning(
@@ -246,6 +249,27 @@ function Settings({
             ))}
           </select>
         </label>
+        <label>
+          Translation timeout (seconds)
+          <input
+            type="number"
+            min={0}
+            max={3600}
+            step={1}
+            value={settings.translationTimeout}
+            aria-describedby="translation-timeout-help"
+            onChange={(event) => {
+              const value = event.target.valueAsNumber;
+              if (Number.isInteger(value) && value >= 0 && value <= 3600) {
+                onChange({ ...settings, translationTimeout: value });
+              }
+            }}
+          />
+        </label>
+        <p id="translation-timeout-help">
+          Wait this long between showing translations. Set to 0 to remove the
+          limit. You can always dismiss a translation.
+        </p>
         <p>
           Settings are saved on this device. Your translation language is
           remembered when you change it while reading.
@@ -322,6 +346,7 @@ function Reader({
   onSettingsChange,
   active,
   onOpenSettings,
+  cooldown,
 }: {
   book: Book;
   tablet: boolean;
@@ -332,6 +357,7 @@ function Reader({
   onSettingsChange: (settings: UserSettings) => void;
   active: boolean;
   onOpenSettings: () => void;
+  cooldown: ReturnType<typeof useTranslationCooldown>;
 }) {
   const [page, setPage] = useState(book.initialPage);
   const [controlsVisible, setControlsVisible] = useState(false);
@@ -350,6 +376,21 @@ function Reader({
   useEffect(() => setZoom(settings.defaultZoom), [settings.defaultZoom]);
   const { url, previous, next, error } = usePageImages(book.entries, page);
   const [selected, setSelected] = useState<TextItem>();
+  function showTranslation(item: TextItem) {
+    if (selected?.id === item.id) return;
+    if (cooldown.requestReveal()) setSelected(item);
+  }
+  const cooldownNotice =
+    cooldown.remaining > 0 ? (
+      <p
+        id="translation-cooldown"
+        className="translation-cooldown"
+        role="status"
+        aria-live="off"
+      >
+        Next translation in {cooldown.remaining}s
+      </p>
+    ) : null;
   const highlights = settings.showTextRegions;
   const [naturalWidth, setNaturalWidth] = useState(1);
   const [naturalHeight, setNaturalHeight] = useState(1);
@@ -594,8 +635,10 @@ function Reader({
               >
                 Settings
               </button>
+              {tablet && cooldownNotice}
             </div>
           )}
+          {(!tablet || !controlsVisible) && cooldownNotice}
           <div
             className={`viewport ${zoom === 100 ? "swipe-viewport" : ""}`}
             ref={viewport}
@@ -672,6 +715,14 @@ function Reader({
                     className={`hotspot ${highlights ? "outlined" : ""} ${selected?.id === item.id ? "selected" : ""}`}
                     aria-label={`Translate: ${item.original}`}
                     aria-pressed={selected?.id === item.id}
+                    aria-disabled={
+                      cooldown.remaining > 0 && selected?.id !== item.id
+                    }
+                    aria-describedby={
+                      cooldown.remaining > 0
+                        ? "translation-cooldown"
+                        : undefined
+                    }
                     style={{
                       left: item.rect.x * 100 + "%",
                       top: item.rect.y * 100 + "%",
@@ -679,7 +730,9 @@ function Reader({
                       height: item.rect.height * 100 + "%",
                     }}
                     onClick={() =>
-                      setSelected(selected?.id === item.id ? undefined : item)
+                      selected?.id === item.id
+                        ? setSelected(undefined)
+                        : showTranslation(item)
                     }
                   >
                     {selected?.id === item.id && (
@@ -783,7 +836,15 @@ function Reader({
                   <button
                     className={selected?.id === item.id ? "active" : ""}
                     aria-pressed={selected?.id === item.id}
-                    onClick={() => setSelected(item)}
+                    aria-disabled={
+                      cooldown.remaining > 0 && selected?.id !== item.id
+                    }
+                    aria-describedby={
+                      cooldown.remaining > 0
+                        ? "translation-cooldown"
+                        : undefined
+                    }
+                    onClick={() => showTranslation(item)}
                   >
                     <span>{String(item.order).padStart(2, "0")}</span>
                     <span>{item.original}</span>
