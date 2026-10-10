@@ -127,16 +127,20 @@ jobs:
         run: rm -f android/app/build/outputs/apk/release/signingKey.jks
 
       - name: Prepare signed APK artifact
+        id: prepare_apk
         env:
           SIGNED_APK: ${{ steps.sign_apk.outputs.signedReleaseFile }}
+          RELEASE_VERSION: ${{ steps.version.outputs.name }}
         run: |
-          cp "$SIGNED_APK" android/app/build/outputs/apk/release/app-release.apk
+          release_apk="android/app/build/outputs/apk/release/CBReader-$RELEASE_VERSION.apk"
+          cp "$SIGNED_APK" "$release_apk"
+          echo "path=$release_apk" >> "$GITHUB_OUTPUT"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: cbreader-${{ steps.version.outputs.tag }}
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: ${{ steps.prepare_apk.outputs.path }}
           if-no-files-found: error
           retention-days: 14
 
@@ -153,9 +157,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_APK: ${{ steps.prepare_apk.outputs.path }}
         run: |
           gh release create "$RELEASE_TAG" \
-            android/app/build/outputs/apk/release/app-release.apk \
+            "$RELEASE_APK" \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --title "CBreader $RELEASE_TAG" \

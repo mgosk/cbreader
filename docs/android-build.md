@@ -70,7 +70,7 @@ If multiple devices are connected, add `-s DEVICE_SERIAL` after `adb`. Copy a pa
 
 Release APKs are built and signed exclusively by the manual GitHub Actions `release` workflow. Follow the [CI/CD release instructions](cicd.md#releases) to configure signing secrets, enter a new SemVer version in the GitHub Actions UI, and download the APK. The pipeline creates the Git tag.
 
-Install the downloaded APK by opening it on your device or running `adb install -r /path/to/app-release.apk`. If you previously installed a debug APK, uninstall it first because the signing keys differ; uninstalling clears saved reading progress.
+Install the downloaded APK by opening it on your device or running `adb install -r /path/to/CBReader-0.1.0.apk`. If you previously installed a debug APK, uninstall it first because the signing keys differ; uninstalling clears saved reading progress.
 
 ## Verified build
 
